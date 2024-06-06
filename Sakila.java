@@ -4,33 +4,50 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-public class Sakila
-{
-  public static void main(String[] args)
-  {
-    // NOTE: Connection and Statement are AutoClosable.
-    //       Don't forget to close them both in order to avoid leaks.
-    try
-    (
-      // create a database connection
-      Connection connection = DriverManager.getConnection("jdbc:sqlite:./sqlite-sakila.db");
-      Statement statement = connection.createStatement();
-    )
-    {
-      statement.setQueryTimeout(30);  // set timeout to 30 sec.
+public class Sakila {
+    private static Sakila instance; 
+    private Connection connection; 
 
-      ResultSet rs = statement.executeQuery("select * from film");
-      while(rs.next())
-      {
-        // read the result set
-        System.out.println("title = " + rs.getString("title"));
-      }
+    private Sakila() {
+        try {
+            Class.forName("org.sqlite.JDBC");
+            connection = DriverManager.getConnection("jdbc:sqlite:./sqlite-sakila.db");
+            connection.setAutoCommit(false);
+            System.out.println("Opened database successfully");
+        } catch (Exception e) {
+            System.err.println(e.getClass().getName() + ": " + e.getMessage());
+            System.exit(0);
+        }
     }
-    catch(SQLException e)
-    {
-      // if the error message is "out of memory",
-      // it probably means no database file is found
-      e.printStackTrace(System.err);
+
+    public static Sakila getInstance() {
+        if (instance == null) {
+            instance = new Sakila();
+        }
+        return instance;
     }
-  }
+
+    public ResultSet executeQuery(String query) throws SQLException {
+        Statement statement = connection.createStatement();
+        return statement.executeQuery(query);
+    }
+
+    public void closeConnection() throws SQLException {
+        connection.close();
+    }
+
+    public static void main(String[] args) {
+        Sakila sakila = Sakila.getInstance();
+        try {
+            ResultSet rs = sakila.executeQuery("SELECT * FROM film");
+            while (rs.next()) {
+                String title = rs.getString("title");
+                System.out.println("title = " + title);
+            }
+            rs.close();
+            sakila.closeConnection();
+        } catch (SQLException e) {
+            e.printStackTrace(System.err);
+        }
+    }
 }
